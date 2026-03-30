@@ -6,6 +6,7 @@ import resource
 import select
 import subprocess
 import sys
+import re
 from abc import ABC, abstractmethod
 from contextlib import contextmanager, suppress
 from subprocess import CalledProcessError
@@ -50,6 +51,7 @@ class CacheExtPolicy:
 
         if cgroup_size:
             cmd += ["--cgroup_size", str(cgroup_size)]
+
 
         log.info("Starting policy thread: %s", cmd)
         self._policy_thread = subprocess.Popen(
@@ -638,6 +640,70 @@ def parse_numbers_string(num_string: str) -> List[int]:
 
 def parse_cpu_string(cpu_string: str):
     return parse_numbers_string(cpu_string)
+
+
+def parse_redis_bench_results(stdout: str) -> Dict:
+    """Parse My-YCSB Redis benchmark output."""
+    results = {}
+    for line in stdout.splitlines():
+        line = line.strip()
+        if "Warm-Up" in line:
+            continue
+        elif "overall: UPDATE throughput" in line:
+            pattern = r"(\w+ throughput) (\d+\.\d+) ops/sec"
+            matches = re.findall(pattern, line)
+            if len(matches) != 6:
+                raise Exception("Unexpected throughput line pattern: %s" % line)
+            for metric, value in matches:
+                if "READ throughput" in metric:
+                    results["read_throughput_avg"] = float(value)
+                elif "INSERT throughput" in metric:
+                    results["insert_throughput_avg"] = float(value)
+                elif "UPDATE throughput" in metric:
+                    results["update_throughput_avg"] = float(value)
+                elif "SCAN throughput" in metric:
+                    results["scan_throughput_avg"] = float(value)
+                elif "READ_MODIFY_WRITE throughput" in metric:
+                    results["read_modify_write_throughput_avg"] = float(value)
+                elif "total throughput" in metric:
+                    results["throughput_avg"] = float(value)
+                else:
+                    raise Exception("Unknown throughput type: %s" % metric)
+            results["throughput_avg"] = float(matches[-1][1])
+        elif "overall: UPDATE average latency" in line:
+            pattern = r"(\w+ \w+ latency) (\d+\.\d+) ns"
+            matches = re.findall(pattern, line)
+            for metric, value in matches:
+                if "READ average latency" in metric:
+                    results["read_latency_avg"] = float(value)
+                    results["latency_avg"] = float(value)
+                elif "INSERT average latency" in metric:
+                    results["insert_latency_avg"] = float(value)
+                elif "UPDATE average latency" in metric:
+                    results["update_latency_avg"] = float(value)
+                elif "SCAN average latency" in metric:
+                    results["scan_latency_avg"] = float(value)
+                elif "READ_MODIFY_WRITE average latency" in metric:
+                    results["read_modify_write_latency_avg"] = float(value)
+                elif "READ p99 latency" in metric:
+                    results["read_latency_p99"] = float(value)
+                    results["latency_p99"] = float(value)
+                elif "INSERT p99 latency" in metric:
+                    results["insert_latency_p99"] = float(value)
+                elif "UPDATE p99 latency" in metric:
+                    results["update_latency_p99"] = float(value)
+                elif "SCAN p99 latency" in metric:
+                    results["scan_latency_p99"] = float(value)
+                elif "READ_MODIFY_WRITE p99 latency" in metric:
+                    results["read_modify_write_latency_p99"] = float(value)
+                else:
+                    raise Exception("Unknown latency metric: %s" % metric)
+
+    required = ["throughput_avg", "latency_avg", "latency_p99"]
+    if not all(key in results for key in required):
+        raise Exception("Could not parse Redis results from stdout:\n%s" % stdout)
+
+    return results
 
 
 prev_cpu_stats = {"idle": 0.0, "iowait": 0.0, "total": 0.0}
