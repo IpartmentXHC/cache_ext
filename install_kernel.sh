@@ -61,11 +61,32 @@ make -C tools/bpf/bpftool -j
 #	Binary: /usr/local/sbin/bpftool (version v7.3.0)
 sudo make -C tools/bpf/bpftool install
 
-if [[ -z "$(awk -F\' '/menuentry / {print $2}' /boot/grub/grub.cfg | grep -m 1 'Ubuntu, with Linux 6.6.8-cache-ext+')" ]]; then
-	echo "Cannot find cache_ext kernel. Please install the kernel manually."
+installed_kernel=""
+if compgen -G "/boot/vmlinuz-*-cache-ext+" > /dev/null; then
+	installed_kernel=$(basename "$(ls -1 /boot/vmlinuz-*-cache-ext+ | sort | tail -n 1)")
+	installed_kernel=${installed_kernel#vmlinuz-}
+else
+	echo "Cannot find cache_ext kernel image in /boot (expected: /boot/vmlinuz-*-cache-ext+)."
+	echo "Please verify kernel installation manually."
 	exit 1
 fi
 
-echo "cache_ext kernel installed successfully. To boot into it, please run:"
-echo -e "    sudo grub-reboot \"Advanced options for Ubuntu>Ubuntu, with Linux 6.6.8-cache-ext+\""
-echo -e "    sudo reboot now"
+echo "cache_ext kernel installed successfully: ${installed_kernel}"
+
+if [[ -f /boot/grub/grub.cfg ]]; then
+	if awk -F\' '/menuentry / {print $2}' /boot/grub/grub.cfg | grep -qm 1 "${installed_kernel}"; then
+		echo "Detected GRUB bootloader. To boot into cache_ext kernel, run:"
+		echo -e "    sudo grub-reboot \"Advanced options for Ubuntu>Ubuntu, with Linux ${installed_kernel}\""
+		echo -e "    sudo reboot now"
+	else
+		echo "GRUB config exists but does not contain kernel ${installed_kernel}."
+		echo "Run 'sudo update-grub' and select the cache_ext kernel on next boot."
+	fi
+elif [[ -f /boot/extlinux/extlinux.conf ]]; then
+	echo "Detected EXTLINUX bootloader. Please set ${installed_kernel} as default in /boot/extlinux/extlinux.conf and reboot."
+elif [[ -f /boot/boot.scr ]]; then
+	echo "Detected U-Boot boot script (/boot/boot.scr). Please update boot script/default kernel to ${installed_kernel} and reboot."
+else
+	echo "Bootloader config not auto-detected."
+	echo "Kernel is installed; please choose ${installed_kernel} as the default kernel in your bootloader and reboot."
+fi
