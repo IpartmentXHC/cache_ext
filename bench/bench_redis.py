@@ -154,7 +154,12 @@ class RedisBenchmark(BenchmarkFramework):
 
         if config["cgroup_name"] == DEFAULT_CACHE_EXT_CGROUP:
             recreate_cache_ext_cgroup(limit_in_bytes=config["cgroup_size"])
-            self.cache_ext_policy.start()
+            # cache_ext_s3fifo requires --cgroup_size at startup.
+            policy_loader_name = os.path.basename(self.cache_ext_policy.loader_path)
+            if policy_loader_name == "cache_ext_s3fifo.out":
+                self.cache_ext_policy.start(cgroup_size=config["cgroup_size"])
+            else:
+                self.cache_ext_policy.start()
         else:
             recreate_baseline_cgroup(limit_in_bytes=config["cgroup_size"])
 
