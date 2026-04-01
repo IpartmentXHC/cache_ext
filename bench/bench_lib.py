@@ -278,12 +278,40 @@ def disable_swap():
     run(["sudo", "swapoff", "-a"])
 
 
+def _set_smt_state(state: str):
+    smt_control_path = "/sys/devices/system/cpu/smt/control"
+
+    if not os.path.exists(smt_control_path):
+        log.info("SMT control file not found (%s), skipping SMT change", smt_control_path)
+        return
+
+    try:
+        current = read_file(smt_control_path)
+    except Exception as e:
+        log.warning("Failed to read SMT state from %s: %s", smt_control_path, e)
+        current = ""
+
+    # Avoid unnecessary writes and tolerate unsupported modes on some ARM platforms.
+    if current == state:
+        return
+
+    try:
+        run(["sudo", "sh", "-c", f"echo {state} > {smt_control_path}"])
+    except subprocess.CalledProcessError as e:
+        log.warning(
+            "Failed to set SMT state to '%s' via %s (continuing): %s",
+            state,
+            smt_control_path,
+            e,
+        )
+
+
 def disable_smt():
-    run(["sudo", "sh", "-c", "echo off > /sys/devices/system/cpu/smt/control"])
+    _set_smt_state("off")
 
 
 def enable_smt():
-    run(["sudo", "sh", "-c", "echo on > /sys/devices/system/cpu/smt/control"])
+    _set_smt_state("on")
 
 
 def rsync_folder(source_dir: str, dest_dir: str):

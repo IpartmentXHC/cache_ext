@@ -1,5 +1,6 @@
 #!/bin/bash
 # disable-mglru.sh
+set -eu -o pipefail
 
 echo 'n' | sudo tee /sys/kernel/mm/lru_gen/enabled > /dev/null
 
