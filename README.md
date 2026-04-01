@@ -138,6 +138,19 @@ the plots.
 
 The figures will be saved as PDFs in a created `figures/` directory.
 
+For quick Redis-only analysis without Jupyter, you can run:
+
+```sh
+cd /mydata/cache_ext/bench
+python3 bench_plot_redis.py \
+  --results-file ../results/redis_results.json \
+  --mglru-results-file ../results/redis_results_mglru.json \
+  --output-dir ../figures
+```
+
+This script generates Redis throughput/P99 comparison PDFs, a normalized
+"relative to default" PDF, and a JSON summary file.
+
 ## Citation
 
 If using cache_ext, please include the following citation:

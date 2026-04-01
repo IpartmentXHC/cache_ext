@@ -108,6 +108,8 @@ def plot_groupped_bars(
     legend_fontsize=12,
     label_fontsize=None,
     legend_loc="best",
+    legend_bbox_to_anchor=None,
+    legend_ncol=1,
     text_center_list=None,
 ):
     if label_fontsize is None:
@@ -171,7 +173,14 @@ def plot_groupped_bars(
         plt.tick_params(axis="y", which="both", labelleft=False)
 
     plt.yticks(fontsize=fontsize)
-    plt.legend(fontsize=legend_fontsize, loc=legend_loc)
+    legend_kwargs = {
+        "fontsize": legend_fontsize,
+        "loc": legend_loc,
+        "ncol": legend_ncol,
+    }
+    if legend_bbox_to_anchor is not None:
+        legend_kwargs["bbox_to_anchor"] = legend_bbox_to_anchor
+    plt.legend(**legend_kwargs)
     plt.tight_layout()
     plt.savefig(output, metadata={"creationDate": None})
     plt.clf()
@@ -236,6 +245,8 @@ def leveldb_plot_ycsb_results(
     bar_width=1,
     label_fontsize=None,
     legend_loc="best",
+    legend_bbox_to_anchor=None,
+    legend_ncol=1,
     text_center_list=None,
 ):
     bench_type_to_group = {
@@ -272,6 +283,8 @@ def leveldb_plot_ycsb_results(
         bar_width=bar_width,
         label_fontsize=label_fontsize,
         legend_loc=legend_loc,
+        legend_bbox_to_anchor=legend_bbox_to_anchor,
+        legend_ncol=legend_ncol,
         text_center_list=text_center_list,
     )
 
@@ -305,6 +318,8 @@ def bench_plot_groupped_results(
     bar_width=1,
     label_fontsize=None,
     legend_loc="best",
+    legend_bbox_to_anchor=None,
+    legend_ncol=1,
     normalize_per_group=False,
     text_center_list=None,
 ):
@@ -380,5 +395,7 @@ def bench_plot_groupped_results(
         legend_fontsize=legend_fontsize,
         label_fontsize=label_fontsize,
         legend_loc=legend_loc,
+        legend_bbox_to_anchor=legend_bbox_to_anchor,
+        legend_ncol=legend_ncol,
         text_center_list=text_center_list,
     )
