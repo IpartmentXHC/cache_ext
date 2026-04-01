@@ -72,6 +72,16 @@ def merge_runs(primary: List[bench_lib.BenchRun], extra: List[bench_lib.BenchRun
     return merged
 
 
+def add_config_field(runs: List[bench_lib.BenchRun], key: str, value) -> None:
+    for run in runs:
+        run.config[key] = value
+
+
+def add_config_field_if_missing(runs: List[bench_lib.BenchRun], key: str, value) -> None:
+    for run in runs:
+        run.config.setdefault(key, value)
+
+
 def build_config_matches(runs: List[bench_lib.BenchRun]) -> Tuple[List[Dict], List[str], List[str]]:
     first_match_by_policy = {}
     for run in runs:
@@ -84,6 +94,9 @@ def build_config_matches(runs: List[bench_lib.BenchRun]) -> Tuple[List[Dict], Li
                 for k, v in run.config.items()
                 if k not in {"benchmark", "iteration"}
             }
+            # Keep baseline and MGLRU baseline separated in partial matching.
+            if run.config.get("cgroup_name") == bench_lib.DEFAULT_BASELINE_CGROUP:
+                match["mglru"] = bool(run.config.get("mglru", False))
             first_match_by_policy[policy] = match
 
     selected_policies = [p for p in POLICY_ORDER if p in first_match_by_policy]
@@ -191,22 +204,40 @@ def plot_normalized_figure(
     width = 0.11 if len(selected_policies) >= 6 else 0.14
 
     fig, axes = plt.subplots(1, 2, figsize=(13, 4.8), sharey=False)
+
+    def annotate_bar_values(ax, bars):
+        for bar in bars:
+            value = bar.get_height()
+            if np.isnan(value):
+                continue
+            ax.annotate(
+                f"{value:.1f}%",
+                xy=(bar.get_x() + bar.get_width() / 2, value),
+                xytext=(0, 3),
+                textcoords="offset points",
+                ha="center",
+                va="bottom",
+                fontsize=8,
+            )
+
     for i, policy in enumerate(selected_policies):
         offset = (i - (len(selected_policies) - 1) / 2) * width
-        axes[0].bar(
+        throughput_bars = axes[0].bar(
             x + offset,
             throughput_pct[policy],
             width=width,
             label=POLICY_LABEL[policy],
             color=POLICY_COLOR[policy],
         )
-        axes[1].bar(
+        latency_bars = axes[1].bar(
             x + offset,
             latency_pct[policy],
             width=width,
             label=POLICY_LABEL[policy],
             color=POLICY_COLOR[policy],
         )
+        annotate_bar_values(axes[0], throughput_bars)
+        annotate_bar_values(axes[1], latency_bars)
 
     axes[0].axhline(100, color="black", linestyle="--", linewidth=1)
     axes[0].set_xticks(x)
@@ -221,9 +252,9 @@ def plot_normalized_figure(
     axes[1].set_title("Redis P99 Latency (Default = 100%)")
 
     handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, -0.02), ncol=min(4, len(labels)))
+    fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 1.02), ncol=min(4, len(labels)))
 
-    plt.tight_layout(rect=[0, 0.08, 1, 1])
+    plt.tight_layout(rect=[0, 0, 1, 0.92])
     plt.savefig(
         os.path.join(output_dir, f"{prefix}_relative_to_default_pct.pdf"),
         metadata={"creationDate": None},
@@ -275,8 +306,11 @@ def main():
         raise ValueError("At least one benchmark must be specified")
 
     runs = load_redis_runs(args.results_file)
+    add_config_field_if_missing(runs, "mglru", False)
     if os.path.exists(args.mglru_results_file):
-        runs = merge_runs(runs, load_redis_runs(args.mglru_results_file))
+        mglru_runs = load_redis_runs(args.mglru_results_file)
+        add_config_field(mglru_runs, "mglru", True)
+        runs = merge_runs(runs, mglru_runs)
 
     if not runs:
         raise ValueError("No redis_benchmark runs found in input files")
