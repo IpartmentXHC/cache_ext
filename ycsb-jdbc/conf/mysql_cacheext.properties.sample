@@ -1,0 +1,12 @@
+# MySQL sample properties for cache_ext benchmarking.
+# This file is intended as a template and can be overridden by CLI -p options.
+
+db.driver=com.mysql.cj.jdbc.Driver
+db.url=jdbc:mysql://127.0.0.1:3307/ycsb?useSSL=false&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true&characterEncoding=utf8
+db.user=root
+db.passwd=Admin@2025
+
+jdbc.fetchsize=100
+jdbc.autocommit=true
+jdbc.batchupdateapi=true
+db.batchsize=1000
