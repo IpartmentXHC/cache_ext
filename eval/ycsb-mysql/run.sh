@@ -15,13 +15,14 @@ POLICY_PATH="$BASE_DIR/policies"
 YCSB_JDBC_PATH="$BASE_DIR/ycsb-jdbc"
 RESULTS_PATH="$BASE_DIR/results"
 
-ITERATIONS="${ITERATIONS:-1}"
+ITERATIONS="${ITERATIONS:-3}"
 CPU="${CPU:-8}"
-WORKLOADS="${WORKLOADS:-workloada}"
+WORKLOADS="${WORKLOADS:-workloada,workloadb,workloadc,workloadd,workloade,workloadf}"
 THREADS="${THREADS:-10}"
 RECORDCOUNT="${RECORDCOUNT:-100000}"
 OPERATIONCOUNT="${OPERATIONCOUNT:-100000}"
 TARGET="${TARGET:-0}"
+PLOT="${PLOT:-0}"
 
 MYSQL_HOST="${MYSQL_HOST:-127.0.0.1}"
 MYSQL_PORT="${MYSQL_PORT:-3307}"
@@ -38,6 +39,7 @@ MYSQL_PASSWD="${MYSQL_PASSWD:-ycsb-pass}"
 JDBC_DRIVER_JAR="${JDBC_DRIVER_JAR:-$YCSB_JDBC_PATH/lib/mysql-connector-java-8.0.28.jar}"
 JDBC_PROPS_TEMPLATE="${JDBC_PROPS_TEMPLATE:-$YCSB_JDBC_PATH/conf/mysql_cacheext.properties.sample}"
 RESULTS_SUFFIX="${RESULTS_SUFFIX:-}"
+PLOT_OUTPUT_DIR="${PLOT_OUTPUT_DIR:-$BASE_DIR/figures}"
 
 POLICIES=(
     "cache_ext_lhd"
@@ -60,6 +62,13 @@ if [[ -n "$RESULTS_SUFFIX" ]]; then
 fi
 
 mkdir -p "$RESULTS_PATH"
+
+echo "MySQL YCSB config:"
+echo "  workloads: $WORKLOADS"
+echo "  policies: ${POLICIES[*]}"
+echo "  iterations: $ITERATIONS"
+echo "  cpu: $CPU"
+echo "  plot: $PLOT"
 
 if [[ ! -f "$JDBC_DRIVER_JAR" ]]; then
     echo "JDBC driver jar not found: $JDBC_DRIVER_JAR"
@@ -152,3 +161,18 @@ fi
 echo "MySQL YCSB benchmark completed."
 echo "Main results: $RESULTS_FILE"
 echo "MGLRU results: $RESULTS_FILE_MGLRU"
+
+if [[ "$PLOT" == "1" ]]; then
+    PLOT_PREFIX="mysql"
+    if [[ -n "$RESULTS_SUFFIX" ]]; then
+        PLOT_PREFIX="mysql_${RESULTS_SUFFIX}"
+    fi
+
+    echo "Generating MySQL figures..."
+    python3 "$BENCH_PATH/bench_plot_mysql.py" \
+        --results-file "$RESULTS_FILE" \
+        --mglru-results-file "$RESULTS_FILE_MGLRU" \
+        --output-dir "$PLOT_OUTPUT_DIR" \
+        --prefix "$PLOT_PREFIX" \
+        --benchmarks "$WORKLOADS"
+fi
